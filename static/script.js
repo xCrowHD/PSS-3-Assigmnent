@@ -1,7 +1,9 @@
 let calendar;
 let selectedEventId = null;
+let studyChart;
 
 document.addEventListener('DOMContentLoaded', function() {
+  // Inizializza il calendario
   calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
     initialView: 'dayGridMonth',
     headerToolbar: {
@@ -22,6 +24,9 @@ document.addEventListener('DOMContentLoaded', function() {
     eventResize: async function(info) {
       await updateEvent(info.event);
       calendar.refetchEvents();
+    },
+    datesSet: function(info) {
+      updateStudyChart();
     },
     eventContent: function(info) {
       return {
@@ -47,10 +52,33 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Aggiungi event listener per il form
+  // Aggiungi event listener per il form dell'evento
   document.getElementById('eventForm').addEventListener('submit', function(e) {
     e.preventDefault();
     saveEvent();
+  });
+
+  // Carica le categorie per il dropdown e la sidebar
+  loadCategories();
+
+  // Gestione del form per aggiungere categoria
+  document.getElementById('categoryForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const name = document.getElementById('newCategory').value.trim();
+    if (!name) return;
+    try {
+      const response = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name })
+      });
+      if (response.ok) {
+        document.getElementById('newCategory').value = '';
+        loadCategories();
+      }
+    } catch (error) {
+      console.error('Errore nell\'aggiunta della categoria', error);
+    }
   });
 });
 
@@ -79,6 +107,20 @@ function openEditModal(event) {
   const colorBtn = document.querySelector(`.color-btn[data-color="${currentColor}"]`);
   if (colorBtn) selectColor(colorBtn);
 
+  // Imposta la categoria selezionata nel dropdown
+  const eventCategory = event.extendedProps.category;
+  const select = document.getElementById('eventCategory');
+  if (eventCategory) {
+    for (let option of select.options) {
+      if (option.textContent === eventCategory) {
+        select.value = option.value;
+        break;
+      }
+    }
+  } else {
+    select.value = "";
+  }
+
   new bootstrap.Modal(document.getElementById('eventModal')).show();
 }
 
@@ -88,7 +130,8 @@ async function saveEvent() {
     start: document.getElementById('eventStart').value,
     end: document.getElementById('eventEnd').value || null,
     description: document.getElementById('eventDescription').value,
-    color: document.getElementById('eventColor').value
+    color: document.getElementById('eventColor').value,
+    category_id: document.getElementById('eventCategory').value || null
   };
 
   const url = selectedEventId ? `/api/events/${selectedEventId}` : '/api/events';
@@ -121,7 +164,8 @@ async function updateEvent(event) {
         start: event.start.toISOString(),
         end: event.end?.toISOString() || null,
         description: event.extendedProps.description,
-        color: event.backgroundColor
+        color: event.backgroundColor,
+        category_id: event.extendedProps.category_id || null
       })
     });
     
@@ -152,3 +196,79 @@ function selectColor(btn) {
   btn.classList.add('selected');
   document.getElementById('eventColor').value = btn.dataset.color;
 }
+
+async function loadCategories() {
+  try {
+    const response = await fetch('/api/categories');
+    const categories = await response.json();
+    // Popola il dropdown per la selezione categoria nel form evento
+    const select = document.getElementById('eventCategory');
+    select.innerHTML = '<option value="">Seleziona categoria</option>';
+    categories.forEach(cat => {
+      const option = document.createElement('option');
+      option.value = cat.id;
+      option.textContent = cat.name;
+      select.appendChild(option);
+    });
+    // Popola la lista nella sidebar
+    const catList = document.getElementById('categoryList');
+    if (catList) {
+      catList.innerHTML = '';
+      categories.forEach(cat => {
+        const li = document.createElement('li');
+        li.textContent = cat.name;
+        li.className = 'list-group-item';
+        catList.appendChild(li);
+      });
+    }
+  } catch (error) {
+    console.error('Errore nel caricamento delle categorie', error);
+  }
+}
+
+function updateStudyChart() {
+  let viewType = calendar.view.type;
+  let endpoint = '/api/study_summary/monthly';
+  if (viewType === 'timeGridWeek') {
+    endpoint = '/api/study_summary/weekly';
+  } else if (viewType === 'timeGridDay') {
+    endpoint = '/api/study_summary/daily';
+  }
+  // Ottieni le date di inizio e fine della vista corrente
+  const activeStart = calendar.view.activeStart.toISOString().split('T')[0];
+  const activeEnd = calendar.view.activeEnd.toISOString().split('T')[0];
+  
+  fetch(`${endpoint}?start=${activeStart}&end=${activeEnd}`)
+    .then(response => response.json())
+    .then(data => {
+      const labels = data.map(item => item.day || item.week || item.month);
+      const hours = data.map(item => item.hours);
+      if (studyChart) {
+        studyChart.data.labels = labels;
+        studyChart.data.datasets[0].data = hours;
+        studyChart.update();
+      } else {
+        const ctx = document.getElementById('studyChart').getContext('2d');
+        studyChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Ore di studio',
+              data: hours,
+              backgroundColor: 'rgba(75, 192, 192, 0.6)'
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+    });
+}
+

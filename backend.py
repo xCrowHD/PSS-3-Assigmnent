@@ -1,6 +1,6 @@
 from flask import Flask, render_template
-from model import create_table, DATABASE  # Importa DATABASE
-import os  # Importa il modulo os per verificare l'esistenza del file
+from model import create_tables, DATABASE
+import os
 
 app = Flask(__name__)
 
@@ -13,8 +13,8 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    # Verifica se il database esiste
+    # Se il database non esiste, crea le tabelle
     if not os.path.exists(DATABASE):
-        create_table()
+        create_tables()
     
     app.run(debug=True)
