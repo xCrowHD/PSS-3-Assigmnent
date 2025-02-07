@@ -1,7 +1,5 @@
 from flask import jsonify, request
-from model import (get_all_events, add_event, update_event, delete_event, 
-                   get_all_categories, add_category, 
-                   get_daily_study_summary, get_weekly_study_summary, get_monthly_study_summary)
+from model import *
 
 def configure_routes(app):
     @app.route('/api/events', methods=['GET'])
@@ -25,6 +23,7 @@ def configure_routes(app):
     @app.route('/api/events/<int:event_id>', methods=['PUT'])
     def handle_update_event(event_id):
         data = request.get_json()
+        print(data)
         update_event(
             event_id,
             data.get('title'),
@@ -53,24 +52,12 @@ def configure_routes(app):
         category_id = add_category(data['name'])
         return jsonify({"id": category_id, "name": data['name']}), 201
 
-    @app.route('/api/study_summary/daily', methods=['GET'])
-    def handle_daily_study_summary():
+    @app.route('/api/study_summary', methods=['GET'])
+    def handle_total_study_hours_by_category():
         start = request.args.get('start')
         end = request.args.get('end')
-        summary = get_daily_study_summary(start, end)
-        return jsonify([dict(row) for row in summary])
-
-    @app.route('/api/study_summary/weekly', methods=['GET'])
-    def handle_weekly_study_summary():
-        start = request.args.get('start')
-        end = request.args.get('end')
-        summary = get_weekly_study_summary(start, end)
-        return jsonify([dict(row) for row in summary])
-
-    @app.route('/api/study_summary/monthly', methods=['GET'])
-    def handle_monthly_study_summary():
-        start = request.args.get('start')
-        end = request.args.get('end')
-        summary = get_monthly_study_summary(start, end)
-        return jsonify([dict(row) for row in summary])
+        raw_data = get_total_study_hours_by_category(start, end)
+        summary_dict = {row['name']: row['total_hours'] for row in raw_data}
+        print(summary_dict)
+        return jsonify(summary_dict)
 

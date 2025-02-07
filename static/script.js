@@ -161,14 +161,14 @@ async function updateEvent(event) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: event.title,
-        start: event.start.toISOString(),
-        end: event.end?.toISOString() || null,
+        start: event.start.toISOString().slice(0, 16),
+        end: event.end?.toISOString().slice(0, 16) || null,
         description: event.extendedProps.description,
         color: event.backgroundColor,
         category_id: event.extendedProps.category_id || null
       })
     });
-    
+
     if (!response.ok) throw new Error('Errore nell\'aggiornamento');
     
     return await response.json();
@@ -227,43 +227,55 @@ async function loadCategories() {
 }
 
 function updateStudyChart() {
-  let viewType = calendar.view.type;
-  let endpoint = '/api/study_summary/monthly';
-  if (viewType === 'timeGridWeek') {
-    endpoint = '/api/study_summary/weekly';
-  } else if (viewType === 'timeGridDay') {
-    endpoint = '/api/study_summary/daily';
-  }
+  // Imposta l'endpoint per ottenere i dati aggregati per categoria
+  let endpoint = '/api/study_summary';
+
   // Ottieni le date di inizio e fine della vista corrente
   const activeStart = calendar.view.activeStart.toISOString().split('T')[0];
   const activeEnd = calendar.view.activeEnd.toISOString().split('T')[0];
-  
+  console.log("----------------");
+  console.log(activeStart);
+  console.log(activeEnd);
+
+  // Fai la richiesta per ottenere i dati
   fetch(`${endpoint}?start=${activeStart}&end=${activeEnd}`)
     .then(response => response.json())
     .then(data => {
-      const labels = data.map(item => item.day || item.week || item.month);
-      const hours = data.map(item => item.hours);
+      // Prepara i dati per il grafico a torta
+      const categories = Object.keys(data);  // Le categorie (come filosofia, storia, ecc.)
+      const hours = categories.map(category => data[category]);  // Le ore corrispondenti ad ogni categoria
+
+      // Se il grafico esiste già, aggiorna i dati
       if (studyChart) {
-        studyChart.data.labels = labels;
+        studyChart.data.labels = categories;
         studyChart.data.datasets[0].data = hours;
         studyChart.update();
       } else {
+        // Crea un nuovo grafico a torta
         const ctx = document.getElementById('studyChart').getContext('2d');
         studyChart = new Chart(ctx, {
-          type: 'bar',
+          type: 'pie',
           data: {
-            labels: labels,
+            labels: categories,
             datasets: [{
-              label: 'Ore di studio',
+              label: 'Ore di studio per categoria',
               data: hours,
-              backgroundColor: 'rgba(75, 192, 192, 0.6)'
+              backgroundColor: ['rgba(75, 192, 192, 0.6)', 'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)', 
+                                 'rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)', 'rgba(255, 205, 86, 0.6)']
             }]
           },
           options: {
             responsive: true,
-            scales: {
-              y: {
-                beginAtZero: true
+            plugins: {
+              legend: {
+                position: 'top',
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(tooltipItem) {
+                    return tooltipItem.label + ': ' + tooltipItem.raw + ' ore';
+                  }
+                }
               }
             }
           }

@@ -87,68 +87,28 @@ def add_category(name):
         db.commit()
         return cursor.lastrowid
 
-# Funzioni per ottenere i dati di studio aggregati per grafico
-
-def get_daily_study_summary(start_date=None, end_date=None):
+def get_total_study_hours_by_category(start_date=None, end_date=None):
     """
-    Restituisce la somma delle ore di studio per ogni giorno,
-    filtrando gli eventi in base a start_date e end_date, se forniti.
+    Restituisce i dati grezzi delle ore di studio per ciascuna categoria
+    nell'intervallo di date fornito (start_date, end_date).
     """
     with sqlite3.connect(DATABASE) as db:
         db.row_factory = sqlite3.Row
         query = '''
-            SELECT date(start) as day, 
-                   sum((julianday(end) - julianday(start)) * 24) as hours
-            FROM events
+            SELECT categories.name AS name, 
+                   ROUND(sum((julianday(end) - julianday(start)) * 24), 2) as total_hours
+            FROM events JOIN categories ON events.category_id = categories.id
             WHERE end IS NOT NULL
         '''
         params = []
+        
+        # Filtra per intervallo di date
         if start_date and end_date:
-            query += " AND date(start) >= date(?) AND date(start) < date(?)"
+            query += " AND date(start) > date(?) AND date(start) <= date(?)"
             params.extend([start_date, end_date])
-        query += " GROUP BY day ORDER BY day"
-        cursor = db.execute(query, params)
-        return cursor.fetchall()
 
-def get_weekly_study_summary(start_date=None, end_date=None):
-    """
-    Restituisce la somma delle ore di studio per ogni settimana,
-    filtrando gli eventi se start_date ed end_date sono forniti.
-    """
-    with sqlite3.connect(DATABASE) as db:
-        db.row_factory = sqlite3.Row
-        query = '''
-            SELECT strftime('%Y-%W', start) as week, 
-                   sum((julianday(end) - julianday(start)) * 24) as hours
-            FROM events
-            WHERE end IS NOT NULL
-        '''
-        params = []
-        if start_date and end_date:
-            query += " AND date(start) >= date(?) AND date(start) < date(?)"
-            params.extend([start_date, end_date])
-        query += " GROUP BY week ORDER BY week"
-        cursor = db.execute(query, params)
-        return cursor.fetchall()
-
-def get_monthly_study_summary(start_date=None, end_date=None):
-    """
-    Restituisce la somma delle ore di studio per ogni mese,
-    filtrando gli eventi se start_date ed end_date sono forniti.
-    """
-    with sqlite3.connect(DATABASE) as db:
-        db.row_factory = sqlite3.Row
-        query = '''
-            SELECT strftime('%Y-%m', start) as month, 
-                   sum((julianday(end) - julianday(start)) * 24) as hours
-            FROM events
-            WHERE end IS NOT NULL
-        '''
-        params = []
-        if start_date and end_date:
-            query += " AND date(start) >= date(?) AND date(start) < date(?)"
-            params.extend([start_date, end_date])
-        query += " GROUP BY month ORDER BY month"
+        query += " GROUP BY categories.name ORDER BY categories.name"
+        
         cursor = db.execute(query, params)
         return cursor.fetchall()
 
