@@ -89,7 +89,4 @@ L'applicazione è strutturata in modo modulare seguendo il pattern MVC, il che p
 - Sincronizzazione con Google Calendar.
 - Miglioramento della gestione degli utenti con autenticazione.
 
----
-
-Questa bozza ti sembra adatta? Vuoi aggiungere o modificare qualcosa?
 
