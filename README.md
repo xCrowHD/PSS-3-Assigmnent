@@ -40,8 +40,8 @@ La parte **View** utilizza:
 ### Controller (`controller.py`)
 Il **Controller** gestisce:
 - Le API RESTful per il recupero, l'aggiunta, la modifica e l'eliminazione di eventi.
-- La gestione delle categorie.
-- Il calcolo delle ore totali di studio suddivise per categoria.
+- Le API RESTful per la gestione delle categorie.
+- Le API RESTful per il calcolo delle ore totali di studio suddivise per categoria.
 
 Il file `backend.py` si occupa di:
 - Configurare l'app Flask.
